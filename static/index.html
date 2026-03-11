@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anthropic Proxy — 配置面板</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2d3048;
+    --accent: #6c63ff;
+    --accent-hover: #7c74ff;
+    --text: #e2e4f0;
+    --muted: #8b90a8;
+    --success: #22c55e;
+    --error: #ef4444;
+    --warning: #f59e0b;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px 16px;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  header h1 { font-size: 1.5rem; font-weight: 700; }
+  header p { color: var(--muted); font-size: 0.875rem; margin-top: 4px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); margin-bottom: 16px; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 0.8125rem; color: var(--muted);
+    margin-bottom: 5px; font-weight: 500; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px; color: var(--text);
+    font-size: 0.875rem; outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+  .input-wrap { position: relative; display: flex; }
+  .input-wrap input { flex: 1; padding-right: 36px; }
+  .eye-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: 1rem; padding: 2px; line-height: 1;
+  }
+  .eye-btn:hover { color: var(--text); }
+  .toggle-row { display: flex; align-items: center; gap: 10px; }
+  .toggle-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .toggle-row span { font-size: 0.875rem; }
+  .collapsible-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .collapsible-header .arrow { transition: transform 0.2s; color: var(--muted); }
+  .collapsible-header.open .arrow { transform: rotate(90deg); }
+  .collapsible-body { overflow: hidden; }
+  .collapsible-body.collapsed { display: none; }
+  .hidden { display: none !important; }
+  .btn-save {
+    width: 100%; padding: 11px; background: var(--accent);
+    border: none; border-radius: var(--radius); color: #fff;
+    font-size: 0.9375rem; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; margin-top: 4px;
+  }
+  .btn-save:hover { background: var(--accent-hover); }
+  .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px; border-radius: 6px; font-size: 0.875rem;
+    font-weight: 500; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+  .toast.success { background: var(--success); color: #fff; }
+  .toast.error { background: var(--error); color: #fff; }
+  .hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+  textarea { resize: vertical; min-height: 72px; font-family: monospace; font-size: 0.8125rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Anthropic Proxy</h1>
+    <p>配置模型转发规则与 API 密钥</p>
+  </header>
+
+  <!-- Model Mapping -->
+  <div class="card">
+    <h2>模型映射</h2>
+    <div class="field">
+      <label for="preferred_provider">首选 Provider</label>
+      <select id="preferred_provider" onchange="onProviderChange()">
+        <option value="openai">OpenAI</option>
+        <option value="google">Google (Gemini)</option>
+        <option value="anthropic">Anthropic（直连）</option>
+      </select>
+    </div>
+    <div class="field" id="big_model_field">
+      <label for="big_model">大模型（Sonnet → ）</label>
+      <input type="text" id="big_model" placeholder="gpt-4.1">
+    </div>
+    <div class="field" id="small_model_field">
+      <label for="small_model">小模型（Haiku → ）</label>
+      <input type="text" id="small_model" placeholder="gpt-4.1-mini">
+    </div>
+  </div>
+
+  <!-- API Keys -->
+  <div class="card">
+    <h2>API Keys &amp; 端点</h2>
+    <div class="field">
+      <label>OpenAI API Key</label>
+      <div class="input-wrap">
+        <input type="password" id="openai_api_key" placeholder="sk-...">
+        <button class="eye-btn" onclick="toggleKey('openai_api_key')">👁</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="openai_base_url">OpenAI Base URL（可选）</label>
+      <input type="text" id="openai_base_url" placeholder="https://api.openai.com/v1">
+    </div>
+    <div class="field">
+      <label>Gemini API Key</label>
+      <div class="input-wrap">
+        <input type="password" id="gemini_api_key" placeholder="AIza...">
+        <button class="eye-btn" onclick="toggleKey('gemini_api_key')">👁</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Anthropic API Key</label>
+      <div class="input-wrap">
+        <input type="password" id="anthropic_api_key" placeholder="sk-ant-...">
+        <button class="eye-btn" onclick="toggleKey('anthropic_api_key')">👁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vertex AI -->
+  <div class="card">
+    <h2>Vertex AI</h2>
+    <div class="field">
+      <div class="toggle-row">
+        <input type="checkbox" id="use_vertex_auth" onchange="onVertexChange()">
+        <span>使用 Application Default Credentials（ADC）</span>
+      </div>
+      <p class="hint">启用后将使用 GCP 默认凭证，无需 Gemini API Key</p>
+    </div>
+    <div id="vertex_fields" class="hidden">
+      <div class="field">
+        <label for="vertex_project">GCP Project ID</label>
+        <input type="text" id="vertex_project" placeholder="my-gcp-project">
+      </div>
+      <div class="field">
+        <label for="vertex_location">Region / Location</label>
+        <input type="text" id="vertex_location" placeholder="us-central1">
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced Params -->
+  <div class="card">
+    <div class="collapsible-header" onclick="toggleAdvanced(this)">
+      <h2 style="margin:0">高级参数</h2>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="collapsible-body collapsed" id="advanced_body">
+      <div style="height:16px"></div>
+      <div class="field">
+        <label for="ep_temperature">Temperature（空 = 不覆盖）</label>
+        <input type="number" id="ep_temperature" placeholder="留空则使用请求原值" step="0.01" min="0" max="2">
+      </div>
+      <div class="field">
+        <label for="ep_top_p">Top P（空 = 不覆盖）</label>
+        <input type="number" id="ep_top_p" placeholder="留空则使用请求原值" step="0.01" min="0" max="1">
+      </div>
+      <div class="field">
+        <label for="ep_enable_thinking">enable_thinking</label>
+        <select id="ep_enable_thinking">
+          <option value="">不设置</option>
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+        <p class="hint">注入到 chat_template_kwargs.enable_thinking</p>
+      </div>
+      <div class="field">
+        <label for="ep_chat_template_kwargs">chat_template_kwargs（JSON）</label>
+        <textarea id="ep_chat_template_kwargs" placeholder="{}">{}</textarea>
+        <p class="hint">自定义键值对，直接合并到请求 extra_body</p>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-save" onclick="saveConfig()">保存配置</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    document.getElementById('preferred_provider').value = cfg.preferred_provider || 'openai';
+    document.getElementById('big_model').value = cfg.big_model || '';
+    document.getElementById('small_model').value = cfg.small_model || '';
+    document.getElementById('openai_api_key').value = cfg.openai_api_key || '';
+    document.getElementById('openai_base_url').value = cfg.openai_base_url || '';
+    document.getElementById('gemini_api_key').value = cfg.gemini_api_key || '';
+    document.getElementById('anthropic_api_key').value = cfg.anthropic_api_key || '';
+    document.getElementById('use_vertex_auth').checked = !!cfg.use_vertex_auth;
+    document.getElementById('vertex_project').value = cfg.vertex_project || '';
+    document.getElementById('vertex_location').value = cfg.vertex_location || '';
+    const ep = cfg.extra_params || {};
+    document.getElementById('ep_temperature').value = ep.temperature != null ? ep.temperature : '';
+    document.getElementById('ep_top_p').value = ep.top_p != null ? ep.top_p : '';
+    document.getElementById('ep_enable_thinking').value =
+      ep.enable_thinking === true ? 'true' : ep.enable_thinking === false ? 'false' : '';
+    document.getElementById('ep_chat_template_kwargs').value =
+      JSON.stringify(ep.chat_template_kwargs || {}, null, 2);
+    onProviderChange();
+    onVertexChange();
+  } catch(e) {
+    showToast('加载配置失败: ' + e.message, 'error');
+  }
+}
+
+async function saveConfig() {
+  const btn = document.querySelector('.btn-save');
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  let chatTplKwargs = {};
+  try {
+    chatTplKwargs = JSON.parse(document.getElementById('ep_chat_template_kwargs').value || '{}');
+  } catch(e) {
+    showToast('chat_template_kwargs JSON 格式错误', 'error');
+    btn.disabled = false; btn.textContent = '保存配置'; return;
+  }
+
+  const etRaw = document.getElementById('ep_enable_thinking').value;
+  const enableThinking = etRaw === 'true' ? true : etRaw === 'false' ? false : null;
+  const tempRaw = document.getElementById('ep_temperature').value;
+  const topPRaw = document.getElementById('ep_top_p').value;
+
+  const payload = {
+    preferred_provider: document.getElementById('preferred_provider').value,
+    big_model: document.getElementById('big_model').value.trim(),
+    small_model: document.getElementById('small_model').value.trim(),
+    openai_api_key: document.getElementById('openai_api_key').value.trim(),
+    openai_base_url: document.getElementById('openai_base_url').value.trim(),
+    gemini_api_key: document.getElementById('gemini_api_key').value.trim(),
+    anthropic_api_key: document.getElementById('anthropic_api_key').value.trim(),
+    use_vertex_auth: document.getElementById('use_vertex_auth').checked,
+    vertex_project: document.getElementById('vertex_project').value.trim(),
+    vertex_location: document.getElementById('vertex_location').value.trim(),
+    extra_params: {
+      temperature: tempRaw !== '' ? parseFloat(tempRaw) : null,
+      top_p: topPRaw !== '' ? parseFloat(topPRaw) : null,
+      enable_thinking: enableThinking,
+      chat_template_kwargs: chatTplKwargs,
+    }
+  };
+
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('✓ 配置已保存并生效', 'success');
+    } else {
+      showToast('保存失败: ' + (data.detail || JSON.stringify(data)), 'error');
+    }
+  } catch(e) {
+    showToast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+  }
+}
+
+function onProviderChange() {
+  const p = document.getElementById('preferred_provider').value;
+  const hide = p === 'anthropic';
+  document.getElementById('big_model_field').classList.toggle('hidden', hide);
+  document.getElementById('small_model_field').classList.toggle('hidden', hide);
+}
+
+function onVertexChange() {
+  const checked = document.getElementById('use_vertex_auth').checked;
+  document.getElementById('vertex_fields').classList.toggle('hidden', !checked);
+}
+
+function toggleKey(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function toggleAdvanced(header) {
+  header.classList.toggle('open');
+  const body = document.getElementById('advanced_body');
+  body.classList.toggle('collapsed');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadConfig();
+</script>
+</body>
+</html>
